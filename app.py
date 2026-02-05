@@ -70,12 +70,16 @@ st.markdown(
         <img src="data:image/png;base64,{insta_b64}" width="24">
         <a href="https://www.instagram.com/amorapele_ufpel/" target="_blank"
            style="text-decoration:none; font-weight:500;">
-           Amor à Pele UFPel
+           Amor à Pele
         </a>
         <span>|</span>
         <a href="https://www.instagram.com/g10petsaude/" target="_blank"
            style="text-decoration:none; font-weight:500;">
-           G10 PET Saúde
+           PET G10 
+           <span>|</span>
+        <a href="https://wp.ufpel.edu.br/fen/" target="_blank"
+           style="text-decoration:none; font-weight:500;">
+           Faculdade de Enfermagem - UFPel  
         </a>
     </div>
     """,
