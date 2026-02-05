@@ -63,6 +63,8 @@ import streamlit as st
 # --- Instagram icon ---
 insta_path = Path("assets/instagram.png")
 insta_b64 = base64.b64encode(insta_path.read_bytes()).decode()
+enf_path = Path("assets/logo.enfermagem.png")
+enf_b64 = base64.b64encode(enf_path.read_bytes()).decode()
 
 st.markdown(
     f"""
@@ -75,16 +77,19 @@ st.markdown(
         <span>|</span>
         <a href="https://www.instagram.com/g10petsaude/" target="_blank"
            style="text-decoration:none; font-weight:500;">
-           PET G10 
-           <span>|</span>
+           PET G10
+        </a>
+        <span>|</span>
+        <img src="data:image/png;base64,{enf_b64}" width="24">
         <a href="https://wp.ufpel.edu.br/fen/" target="_blank"
            style="text-decoration:none; font-weight:500;">
-           Faculdade de Enfermagem - UFPel  
+           Faculdade de Enfermagem – UFPel
         </a>
     </div>
     """,
     unsafe_allow_html=True
 )
+
 
 
 
