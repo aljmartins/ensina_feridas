@@ -3,6 +3,9 @@ import base64
 from pathlib import Path
 import io
 
+import json
+import re
+
 import streamlit as st
 import google.generativeai as genai
 
@@ -186,6 +189,12 @@ with col2:
     )
     st.caption("Mais baixo = respostas objetivas • Mais alto = respostas mais explicativas")
 
+auto_sketch = st.checkbox(
+    "Sugerir esboço quando fizer sentido",
+    value=True,
+    help="O app decide automaticamente se um esboço/figura ajudaria na resposta e, se sim, gera um prompt pronto para você colar em um gerador de imagens.",
+)
+
 prompt = st.text_area(
     "Pergunta / caso",
     height=220,
@@ -220,6 +229,62 @@ REGRAS GERAIS:
 {teaching_rules}
 """
 
+
+
+# =========================
+# Decisão: precisa de esboço?
+# =========================
+def decidir_esboco(pergunta: str, resposta: str, modelo_decisor: str | None = None) -> dict:
+    """
+    Usa o próprio Gemini para decidir se um esboço/figura ajuda, e propõe um prompt de imagem.
+    Retorna dict com:
+      - need_sketch: bool
+      - reason: str
+      - sketch_prompt: str
+    """
+    try:
+        model_id = modelo_decisor or model_name
+        model = genai.GenerativeModel(model_name=model_id)
+
+        decisor_prompt = f"""
+Você é um assistente que decide se um ESBOÇO/FIGURA simples ajudaria a resposta.
+Contexto: o app é sobre feridas crônicas (TIME/TIMERS), mas a pergunta pode ser geral.
+
+Responda SOMENTE em JSON válido, SEM markdown, SEM texto extra, no formato:
+{{"need_sketch": true/false, "reason": "...", "sketch_prompt": "..."}}
+
+Regras:
+- need_sketch = true quando uma figura melhoraria MUITO a compreensão (ex.: anatomia, posicionamento, escolha de calçado/órtese, passo-a-passo de curativo, fluxogramas, comparação visual, layout de equipamento).
+- need_sketch = false quando for pura explicação textual, listas simples, ou quando um desenho pode induzir erro clínico.
+- Se need_sketch = false, deixe sketch_prompt como string vazia "".
+- Se need_sketch = true, crie um prompt curto, bem específico, para gerar uma imagem didática, sem conteúdo chocante. Evite sangue explícito.
+
+PERGUNTA:
+{pergunta}
+
+RESPOSTA (resumo):
+{resposta[:1200]}
+"""
+        resp = model.generate_content(
+            decisor_prompt,
+            generation_config=genai.types.GenerationConfig(temperature=0.1),
+        )
+        raw = (getattr(resp, "text", None) or "").strip()
+
+        # tenta JSON direto; se vier “com sujeira”, extrai o primeiro {...}
+        try:
+            data = json.loads(raw)
+        except Exception:
+            m = re.search(r"\{.*\}", raw, flags=re.DOTALL)
+            data = json.loads(m.group(0)) if m else {"need_sketch": False, "reason": "Não consegui interpretar a decisão.", "sketch_prompt": ""}
+
+        return {
+            "need_sketch": bool(data.get("need_sketch", False)),
+            "reason": str(data.get("reason", "")).strip(),
+            "sketch_prompt": str(data.get("sketch_prompt", "")).strip(),
+        }
+    except Exception:
+        return {"need_sketch": False, "reason": "Falha ao decidir esboço.", "sketch_prompt": ""}
 
 # =========================
 # Exportação PDF
@@ -379,6 +444,38 @@ if st.button("Enviar para o Gemini", type="primary"):
             text = getattr(resp, "text", None)
             final_text = text if text else str(resp)
             st.write(final_text)
+
+            # --- Sugestão de esboço (quando fizer sentido) ---
+            if auto_sketch:
+                with st.spinner("Checando se um esboço ajudaria…"):
+                    d = decidir_esboco(prompt, final_text)
+                if d.get("need_sketch"):
+                    st.markdown("### ✍️ Sugestão de esboço")
+                    if d.get("reason"):
+                        st.info(d["reason"])
+
+                    # BÔNUS ELEGANTE: mostra o prompt com wrap + evita variável não definida
+                    sketch = (d.get("sketch_prompt") or "").strip()
+                    if sketch:
+                        st.info("✅ O sistema sugere que um esboço ajudaria. Copie o prompt abaixo.")
+                        st.text_area(
+                            "Prompt do esboço (PT-BR) — copie e cole no gerador de imagens",
+                            value=sketch,
+                            height=200,
+                        )
+                        st.download_button(
+                            "Baixar prompt do esboço (.txt)",
+                            data=sketch,
+                            file_name="prompt_esboco.txt",
+                            mime="text/plain",
+                        )
+                    else:
+                        st.caption("O decisor marcou que um esboço ajudaria, mas não gerou um prompt. Tente novamente ou reformule o caso.")
+
+                    st.caption(
+                        "Dica: cole esse prompt em um gerador de imagens (NanoBanana, Leonardo, Stable Diffusion, etc.). "
+                        "Se quiser, eu também posso adaptar o prompt para a ferramenta que você for usar."
+                    )
 
             # Guarda para exportação em PDF
             st.session_state["ultima_pergunta"] = prompt
