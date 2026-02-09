@@ -54,7 +54,7 @@ else:
     st.caption(f"Banner não encontrado: {banner_path}")
 
 st.markdown(
-    "<h2 style='text-align:center; margin:0.25rem 0 0.25rem 0;'>🩹 Ensina Feridas – PET G10 UFPel</h2>",
+    "<h2 style='text-align:center; margin:0.25rem 0 0.25rem 0;'>🩹 Ensina Feridas </h2>",
     unsafe_allow_html=True,
 )
 st.caption("Streamlit + Gemini (SDK estável: `google-generativeai`).")
@@ -199,8 +199,16 @@ prompt = st.text_area(
     "Pergunta / caso",
     height=220,
     placeholder=(
-        "Ex.: Pergunta que respondo. Posso ensinar: me ensina sobre minha ferida.... Faça 3 perguntas para avaliar se entendi.\n"
-        "ou: Paciente com úlcera venosa há 8 meses, exsudato moderado, bordas maceradas..."
+    "Conte sua dúvida ou situação do dia a dia.\n"
+    "Para ajudar melhor, tente dizer qual o tipo de ferida "
+    "(úlcera venosa, úlcera arterial, pé diabético ou úlcera por pressão).\n\n"
+    "Exemplos:\n"
+    "• Tenho pé diabético e amanhã vou a um casamento. Que tipo de sapato posso usar?\n"
+    "• Cuido do meu pai, ele tem úlcera por pressão. O que observar no dia a dia?\n"
+    "• Tenho úlcera venosa e a ferida solta muito líquido. Isso é normal?\n"
+    "• Minha úlcera arterial dói bastante. Posso caminhar?\n"
+    "• Como saber se uma ferida está melhorando ou piorando?\n\n"
+    "Se não souber o tipo da ferida, descreva o máximo possível."
     ),
 )
 
