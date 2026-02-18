@@ -473,9 +473,9 @@ if st.button("Enviar para o Gemini", type="primary"):
                         )
                         st.download_button(
                             "Baixar prompt do esboço (.txt)",
-                            data=sketch,
+                            data=sketch.encode("utf-8"),
                             file_name="prompt_esboco.txt",
-                            mime="text/plain",
+                            mime="text/plain; charset=utf-8",
                         )
                     else:
                         st.caption("O decisor marcou que um esboço ajudaria, mas não gerou um prompt. Tente novamente ou reformule o caso.")
