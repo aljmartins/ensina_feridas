@@ -195,22 +195,118 @@ auto_sketch = st.checkbox(
     help="O app decide automaticamente se um esboço/figura ajudaria na resposta e, se sim, gera um prompt pronto para você colar em um gerador de imagens.",
 )
 
+import streamlit.components.v1 as components
+
+# =========================
+# Caixa de pergunta com microfone
+# =========================
+
+# Microfone: injeta texto direto no textarea do Streamlit via DOM
+components.html(
+    """
+    <style>
+      .mic-row { display:flex; align-items:center; gap:10px; margin-bottom:2px; }
+      .mic-btn {
+        background:#0066cc; color:white; border:none;
+        width:40px; height:40px; border-radius:50%;
+        font-size:1.2rem; cursor:pointer; flex-shrink:0;
+        display:flex; align-items:center; justify-content:center;
+        transition:background .2s;
+      }
+      .mic-btn.listening { background:#e53935; animation:pulse 1s infinite; }
+      @keyframes pulse {
+        0%,100%{box-shadow:0 0 0 0 rgba(229,57,53,.35);}
+        50%{box-shadow:0 0 0 8px rgba(229,57,53,0);}
+      }
+      #micStatus { font-size:.82rem; color:#555; }
+    </style>
+    <div class="mic-row">
+      <button class="mic-btn" id="micBtn" title="Falar pergunta">🎤</button>
+      <span id="micStatus">Toque em 🎤 para falar (Chrome/Edge) — o texto vai para a caixa abaixo</span>
+    </div>
+    <script>
+    (function(){
+      const btn    = document.getElementById('micBtn');
+      const status = document.getElementById('micStatus');
+      let listening = false;
+
+      // Injeta texto no textarea do Streamlit que está na janela pai
+      function fillStreamlitTextarea(text) {
+        try {
+          const doc = window.parent.document;
+          // Streamlit renderiza textareas com data-testid="stTextArea" > textarea
+          const ta = doc.querySelector('textarea[aria-label="Pergunta / caso"]')
+                  || doc.querySelector('[data-testid="stTextArea"] textarea')
+                  || doc.querySelector('textarea');
+          if (!ta) { status.textContent = '⚠️ Caixa não encontrada — tente novamente.'; return; }
+          // Força React a reconhecer a mudança
+          const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.parent.HTMLTextAreaElement.prototype, 'value').set;
+          nativeInputValueSetter.call(ta, text);
+          ta.dispatchEvent(new Event('input', { bubbles: true }));
+          ta.dispatchEvent(new Event('change', { bubbles: true }));
+          ta.focus();
+          status.textContent = '✅ Texto na caixa — edite se quiser e clique Enviar.';
+        } catch(e) {
+          status.textContent = '⚠️ Erro ao preencher: ' + e.message;
+        }
+      }
+
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) {
+        status.textContent = '⚠️ Voz indisponível — use o 🎤 do teclado do celular.';
+        btn.style.opacity = '.4';
+        btn.addEventListener('click', () => alert('Use Chrome ou Edge para reconhecimento de voz.'));
+        return;
+      }
+
+      const rec = new SR();
+      rec.lang = 'pt-BR';
+      rec.continuous = false;
+      rec.interimResults = true;
+
+      rec.onstart = () => {
+        listening = true;
+        btn.classList.add('listening');
+        btn.innerHTML = '🔴';
+        status.textContent = '🎙️ Ouvindo…';
+      };
+      rec.onresult = (e) => {
+        let interim = '', final = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const t = e.results[i][0].transcript;
+          if (e.results[i].isFinal) final += t; else interim += t;
+        }
+        if (final) { fillStreamlitTextarea(final.trim()); }
+        else { status.textContent = '…' + interim; }
+      };
+      rec.onerror = (e) => {
+        status.textContent = '❌ Erro: ' + e.error;
+        btn.classList.remove('listening'); btn.innerHTML = '🎤'; listening = false;
+      };
+      rec.onend = () => {
+        listening = false; btn.classList.remove('listening'); btn.innerHTML = '🎤';
+      };
+      btn.addEventListener('click', () => { if (listening) rec.stop(); else rec.start(); });
+    })();
+    </script>
+    """,
+    height=55,
+    scrolling=False,
+)
+
+# Campo de texto nativo — editável normalmente (voz ou digitado)
 prompt = st.text_area(
     "Pergunta / caso",
-    height=220,
+    height=200,
     placeholder=(
-    "Conte sua dúvida ou situação do dia a dia.\n"
-    "Para ajudar melhor, tente dizer qual o tipo de ferida "
-    "(úlcera venosa, úlcera arterial, pé diabético ou úlcera por pressão).\n\n"
-    "Exemplos:\n"
-    "• Tenho pé diabético e amanhã vou a um casamento. Que tipo de sapato posso usar?\n"
-    "• Cuido do meu pai, ele tem úlcera por pressão. O que observar no dia a dia?\n"
-    "• Tenho úlcera venosa e a ferida solta muito líquido. Isso é normal?\n"
-    "• Minha úlcera arterial dói bastante. Posso caminhar?\n"
-    "• Como saber se uma ferida está melhorando ou piorando?\n\n"
-    "Se não souber o tipo da ferida, descreva o máximo possível."
+        "Conte sua dúvida ou situação do dia a dia.\n"
+        "Ex.: Tenho pé diabético e amanhã vou a um casamento. Que sapato posso usar?"
     ),
+    key="prompt_area",
 )
+
+# Botão nativo do Streamlit
+enviar = st.button("🚀 Enviar para o Gemini", type="primary")
 
 
 def build_prompt(user_text: str) -> str:
@@ -433,7 +529,8 @@ def gerar_pdf_a4(pergunta: str, resposta: str) -> bytes:
 # =========================
 # Execução
 # =========================
-if st.button("Enviar para o Gemini", type="primary"):
+# O envio é feito pelo botão dentro do componente HTML acima
+if enviar and prompt:
     if not prompt.strip():
         st.warning("Escreve algo antes. O modelo não lê pensamento (ainda). 😄")
         st.stop()
@@ -510,4 +607,4 @@ if st.button("Enviar para o Gemini", type="primary"):
             st.exception(e)
 
 st.divider()
-st.caption("Dica: um projeto = um .venv. E, se der erro estranho, reinicie o terminal/VS Code.")
+

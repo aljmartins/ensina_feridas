@@ -1,4 +1,8 @@
-.venv/
+﻿.venv/
 __pycache__/
+*.pyc
+*.pyo
+.vscode/
+*.egg-info/
 .env
-.streamlit/secrets.toml
+old/
