@@ -568,12 +568,48 @@ if enviar and prompt:
                             value=sketch,
                             height=200,
                         )
-                        st.download_button(
-                            "Baixar prompt do esboço (.txt)",
-                            data=sketch.encode("utf-8"),
-                            file_name="prompt_esboco.txt",
-                            mime="text/plain; charset=utf-8",
-                        )
+                        
+                        # Botões de download e copiar lado a lado
+                        col_download, col_copy_sketch = st.columns([1, 1])
+                        
+                        with col_download:
+                            st.download_button(
+                                "💾 Baixar prompt (.txt)",
+                                data=sketch.encode("utf-8"),
+                                file_name="prompt_esboco.txt",
+                                mime="text/plain; charset=utf-8",
+                                use_container_width=True,
+                            )
+                        
+                        with col_copy_sketch:
+                            # Botão de copiar o prompt do esboço (azul marinho)
+                            copy_sketch_html = f"""
+                            <button onclick="copySketchPrompt()" 
+                                    style="width:100%; padding:0.5rem 1rem; background-color:#1e3a8a; 
+                                           color:white; border:1px solid #2563eb; border-radius:0.5rem; 
+                                           cursor:pointer; font-size:0.9rem; font-weight:500;">
+                                📋 Copiar prompt
+                            </button>
+                            <textarea id="sketchTextToCopy" style="position:absolute; left:-9999px;">{sketch}</textarea>
+                            <script>
+                            function copySketchPrompt() {{
+                                const text = document.getElementById('sketchTextToCopy').value;
+                                navigator.clipboard.writeText(text).then(function() {{
+                                    const btn = event.target;
+                                    const original = btn.innerHTML;
+                                    btn.innerHTML = '✅ Copiado!';
+                                    btn.style.backgroundColor = '#0e7c0e';
+                                    setTimeout(function() {{
+                                        btn.innerHTML = original;
+                                        btn.style.backgroundColor = '#1e3a8a';
+                                    }}, 2000);
+                                }}, function(err) {{
+                                    alert('Erro ao copiar: ' + err);
+                                }});
+                            }}
+                            </script>
+                            """
+                            components.html(copy_sketch_html, height=50)
                     else:
                         st.caption("O decisor marcou que um esboço ajudaria, mas não gerou um prompt. Tente novamente ou reformule o caso.")
 
@@ -589,18 +625,57 @@ if enviar and prompt:
             st.session_state["ultimo_modo"] = mode
 
             # Botão de exportação (fica logo após a resposta)
-            st.markdown("### 📄 Exportar resposta")
-            if not _PDF_OK:
-                st.warning("Exportação PDF indisponível: instale `reportlab` no requirements.txt.")
-            else:
-                pdf_bytes = gerar_pdf_a4(prompt, final_text)
-                st.download_button(
-                    "Gerar PDF A4 (com banner)",
-                    data=pdf_bytes,
-                    file_name="ensina_feridas_resposta.pdf",
-                    mime="application/pdf",
-                    key="download_pdf_a4",
-                )
+            st.markdown("<h4 style='font-size:1.1rem; margin-top:1.5rem;'>📄 Exportar resposta</h4>", unsafe_allow_html=True)
+            
+            # Dois botões lado a lado
+            col_pdf, col_copy = st.columns([1, 1])
+            
+            with col_pdf:
+                if not _PDF_OK:
+                    st.warning("Exportação PDF indisponível: instale `reportlab` no requirements.txt.")
+                else:
+                    pdf_bytes = gerar_pdf_a4(prompt, final_text)
+                    st.download_button(
+                        "📥 Gerar PDF A4",
+                        data=pdf_bytes,
+                        file_name="ensina_feridas_resposta.pdf",
+                        mime="application/pdf",
+                        key="download_pdf_a4",
+                        use_container_width=True,
+                    )
+            
+            with col_copy:
+                # Prepara texto completo para copiar
+                texto_completo = f"PERGUNTA:\n{prompt}\n\n{'='*50}\n\nRESPOSTA:\n{final_text}"
+                
+                # Botão de copiar com JavaScript (azul marinho)
+                copy_button_html = f"""
+                <button onclick="copyToClipboard()" 
+                        style="width:100%; padding:0.5rem 1rem; background-color:#1e3a8a; 
+                               color:white; border:1px solid #2563eb; border-radius:0.5rem; 
+                               cursor:pointer; font-size:0.9rem; font-weight:500;">
+                    📋 Copiar texto
+                </button>
+                <textarea id="textToCopy" style="position:absolute; left:-9999px;">{texto_completo}</textarea>
+                <script>
+                function copyToClipboard() {{
+                    const text = document.getElementById('textToCopy').value;
+                    navigator.clipboard.writeText(text).then(function() {{
+                        const btn = event.target;
+                        const original = btn.innerHTML;
+                        btn.innerHTML = '✅ Copiado!';
+                        btn.style.backgroundColor = '#0e7c0e';
+                        setTimeout(function() {{
+                            btn.innerHTML = original;
+                            btn.style.backgroundColor = '#1e3a8a';
+                        }}, 2000);
+                    }}, function(err) {{
+                        alert('Erro ao copiar: ' + err);
+                    }});
+                }}
+                </script>
+                """
+                components.html(copy_button_html, height=50)
 
         except Exception as e:
             st.error("Erro ao chamar o Gemini:")
